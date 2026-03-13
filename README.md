@@ -147,8 +147,8 @@ exec(open('why2_bvel3.py').read())
 WHY2/
 ├── README.md
 ├── paper/
-│   ├── WHY2_Paper_v8.docx
-│   └── WHY2_Paper_v8.pdf       ← export from DOCX before pushing
+│   ├── WHY2_Paper_v9.docx
+│   └── WHY2_Paper_v9.pdf       ← export from DOCX before pushing
 ├── experiments/                ← all self-contained scripts
 ├── results/                    ← JSONs from all runs
 └── figures/                    ← PNGs from all runs
@@ -171,7 +171,7 @@ WHY2/
 **WHY2: A Running Coupling Framework for Grokking**
 Lucas Smith, 2026
 
-[`paper/WHY2_Paper_v8.pdf`](paper/WHY2_Paper_v8.pdf) · [`paper/WHY2_Paper_v8.docx`](paper/WHY2_Paper_v8.docx)
+[`paper/WHY2_Paper_v9.pdf`](paper/WHY2_Paper_v9.pdf) · [`paper/WHY2_Paper_v9.docx`](paper/WHY2_Paper_v9.docx)
 
 17 results, full methodology, seed-level appendix tables, Wetterich functional RG grounding, Zamolodchikov c-theorem and holographic RG connections.
 
