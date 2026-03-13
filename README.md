@@ -1,11 +1,23 @@
 # WHY2: A Running Coupling Framework for Grokking
 
-![Python](https://img.shields.io/badge/python-3.8+-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Colab](https://img.shields.io/badge/runs%20on-free%20Colab%20T4-orange)
-![Results](https://img.shields.io/badge/results-17%20across%207%20experiments-brightgreen)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/l-austinsmith/WHY2/blob/main/experiments/why2_bvel3.py)
+[![Results](https://img.shields.io/badge/results-17%20across%207%20experiments-brightgreen)](https://github.com/l-austinsmith/WHY2/tree/main/results)
 
 Grokking transformers trained on modular arithmetic converge to task-specific fixed points in an emergent scalar β, computed from three internal observables: attention routing concentration (K_in), Fourier spectral concentration (K_out), and normalized spectral entropy (H_n). β* orders tasks by algebraic symmetry cost — multiply ≈ 0.63 < add ≈ 3.25 < subtract ≈ 6.33 — spans nearly two orders of magnitude, is inversely correlated with active Fourier mode count (r = −0.85 across six tasks), detects hidden group isomorphisms without circuit inspection, and is invariant to architecture (float32 ≈ ternary) and weight decay.
+
+## Table of Contents
+- [Core Results](#the-core-results)
+- [Seventeen Results](#seventeen-results)
+- [Experiments](#experiments)
+- [Quick Start](#quick-start)
+- [Repo Structure](#repo-structure)
+- [Limitations](#limitations--scope)
+- [Paper](#paper)
+- [Citation](#citation)
+- [Related Work](#related-work)
+- [Contributing](#contributing)
 
 The central diagnostic is the emergent equation:
 
@@ -207,6 +219,18 @@ The triple isomorphism result was not predicted. It emerged from the measurement
 - Ising spin system RG flows
 
 If you have compute and want to collaborate, open an issue.
+
+---
+
+## Contributing
+
+Bug reports, replication attempts, and extension experiments are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on open problems and replication notes.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 ---
 
