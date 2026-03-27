@@ -92,8 +92,8 @@ WHY²/
 ## Quickstart (Google Colab)
 
 ```python
-!git clone https://github.com/l-austinsmith/WHY²
-%cd WHY²/experiments
+!git clone https://github.com/l-austinsmith/WHY2
+%cd WHY2/experiments
 
 # Core result — β velocity (~30 min on T4)
 !python why2_bvel3.py
