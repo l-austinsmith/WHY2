@@ -1,237 +1,161 @@
-# WHY2: A Running Coupling Framework for Grokking
+# WHY² — Asymmetric Kramers Identity for Grokking
 
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/l-austinsmith/WHY2/blob/main/experiments/why2_bvel3.py)
-[![Results](https://img.shields.io/badge/results-17%20across%207%20experiments-brightgreen)](https://github.com/l-austinsmith/WHY2/tree/main/results)
+[![Status: Preprint](https://img.shields.io/badge/status-preprint-blue)](https://github.com/l-austinsmith/WHY²)
+[![Results: 20](https://img.shields.io/badge/results-20-brightgreen)](https://github.com/l-austinsmith/WHY²)
+[![Platform: Colab](https://img.shields.io/badge/platform-Google%20Colab-orange)](https://colab.research.google.com)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-Grokking transformers trained on modular arithmetic converge to task-specific fixed points in an emergent scalar β, computed from three internal observables: attention routing concentration (K_in), Fourier spectral concentration (K_out), and normalized spectral entropy (H_n). β* orders tasks by algebraic symmetry cost — multiply ≈ 0.63 < add ≈ 3.25 < subtract ≈ 6.33 — spans nearly two orders of magnitude, is inversely correlated with active Fourier mode count (r = −0.85 across six tasks), detects hidden group isomorphisms without circuit inspection, and is invariant to architecture (float32 ≈ ternary) and weight decay.
-
-## Table of Contents
-- [Core Results](#the-core-results)
-- [Seventeen Results](#seventeen-results)
-- [Experiments](#experiments)
-- [Quick Start](#quick-start)
-- [Repo Structure](#repo-structure)
-- [Limitations](#limitations--scope)
-- [Paper](#paper)
-- [Citation](#citation)
-- [Related Work](#related-work)
-- [Contributing](#contributing)
-
-The central diagnostic is the emergent equation:
-
-**K_out^β = K_in · exp(−H_n)**
-
-rearranged as:
-
-**β = (log K_in − H_n) / log K_out**
-
-β is not a free parameter, not a fitted exponent, and not equivalent to an inverse thermodynamic temperature. It is computed directly from three simultaneously-measured observables at every probe epoch. The WHY2 equation is formally equivalent to the local potential approximation (LPA) fixed-point condition of the Wetterich functional renormalization group equation — a structural derivation, not an analogy. The interpretation of β* as an empirical inverse c-function is the analogical layer built on top of that derivation.
+**A diagnostic framework for the memorization-to-generalization transition in transformers, grounded in the asymmetric Kramers identity and renormalization group theory.**
 
 ---
 
-## The Core Results
+## The Core Equation
 
-### Task ordering
+$$\beta = \frac{\log K_{\text{in}} - H_n}{\log K_{\text{out}}}$$
 
-β* is ordered by algebraic complexity, spanning nearly two orders of magnitude:
-
-| Task | β* | Active Fourier modes |
-|------|----|----------------------|
-| multiply | 0.63 ± 0.01 | ~49 |
-| division | 0.64 ± 0.05 | ~42 |
-| triple (a+b+ab) | 0.69 ± 0.04 | ~48 |
-| affine (2a+b) | 1.60 ± 0.19 | ~21 |
-| add | 3.25 ± 0.94 | ~18 |
-| subtract | 6.33 ± 0.86 | ~11 |
-
-β* is **inversely correlated** with active Fourier mode count (r = −0.85 across six tasks). β* measures spectral compression cost, not mode richness: subtract compresses from ~97 modes to ~11 (89% compression, high cost); multiply retains ~49 (50% compression, low cost). The strongest single correlate is r(β*, K_out) = +0.908.
-
-### Group isomorphism detection
-
-β* detects algebraic isomorphisms **without circuit inspection** — from a single scalar measurement during training.
-
-- **triple(a,b) = a+b+ab mod p** has nonlinear surface form but factors as (1+a)(1+b)−1, making it isomorphic to multiply under index shift x → x+1. WHY2 detects this: β*(triple) ≈ β*(multiply) (|diff| = 0.064, within 1σ).
-- **division(a,b) = a·b⁻¹ mod p** is isomorphic to multiply: β*(division) ≈ β*(multiply) (|diff| = 0.013).
-- **subtract ≅ add** confirmed across multiple seed sets.
-
-Three independent isomorphism confirmations. The framework is sensitive to algebraic structure, not surface form.
-
-### Architecture invariance
-
-Ternary-weight transformers (weights constrained to {−1, 0, +1} via straight-through estimation, approximating BitNet) converge to the same β* as float32 equivalents:
-
-- Multiply: |β*(ternary) − β*(float32)| = 0.025 ± 0.010 (0.44σ of prior)
-- Ternary models grokked **1.3–1.6× faster** — weight quantization accelerates but does not redirect the RG flow
-
-β* is a property of the **task**, not the hardware encoding it.
-
-### Commutativity detection via β₂*
-
-The normalized attention asymmetry β₂ = K_in_asym / K_in converges to a task-specific late-training value β₂*:
-
-- **Commutative tasks** (multiply, add): β₂* → 0 (collapse ratio < 0.10). Attention symmetrizes after grokking because a∘b = b∘a.
-- **Non-commutative subtract**: β₂* ≈ 0.32–0.44 (persistent asymmetry, collapse ratio ≈ 0.40). Attention never symmetrizes because a−b ≠ b−a.
-
-The separation is clean: β₂* < 0.10 for all commutative seeds; β₂* > 0.28 for all subtract seeds. The persistent asymmetry in subtract may relate to commutator defect signals in recent geometric accounts of grokking [Xu 2026a], where non-commuting gradients precede generalization and are causally implicated. β₂* is WD-dependent (not a universal fixed point), but its sign is a reliable binary detector of algebraic commutativity. β* remains the sole WD-invariant fixed point.
-
-### Theoretical grounding
-
-The WHY2 equation is formally equivalent to the **local potential approximation (LPA) fixed-point condition of the Wetterich functional renormalization group equation**. Under this identification:
-
-- β* is an empirical inverse c-function (Zamolodchikov 1986) — interpretive layer
-- WD-invariance of β* is empirical scheme-independence — interpretive layer
-- The subtract two-basin structure (Basin A: β* ≈ 5–8, Basin B: β* ≈ 12–19) signals proximity to a φ⁶ tricritical point
-- The training trajectory maps to the radial AdS coordinate in holographic RG (UV = random init, IR = β*)
+where **K_out** measures spectral compression of the output embedding (fraction of Fourier power in the top 10% of modes), **K_in** measures attention asymmetry toward input operands, and **H_n** is normalized spectral entropy. At grokking, β converges to a stable fixed point β* that encodes the algebraic complexity of the task. This equation is the empirical analogue of the Wetterich LPA fixed-point condition in functional renormalization group theory.
 
 ---
 
-## Seventeen Results
+## Key Results (20 total)
 
-1. K_in and K_out are anti-correlated throughout pre-grokking training
-2. The K_out/K_in ratio at grokking is a prime-invariant task complexity fingerprint
-3. A sharp phase boundary exists at WD_c ∈ (0.25, 0.30) with critical slowing down
-4. K_out decreases monotonically with model size (ρ = −0.815)
-5. β converges to finite task-specific fixed points β* with dβ/dt → 0
-6. The ordering β*(multiply) < β*(add) < β*(subtract) holds universally
-7. Subtract exhibits two-attractor dynamics (Basin A/B) separated by K_out ≈ 0.83
-8. Asymmetry persistence at K_out = 0.83 threshold predicts basin assignment
-9. No post-initialization intervention shifts basin assignment (144 null results)
-10. Epoch-0 geometry is identical across basins; divergence begins within ~25 steps
-11. Initial asymmetry asym@0 does not predict β* (r = −0.044, n=30)
-12. Basin assignment is fully deterministic (72 runs, zero basin flips)
-13. Grokking coincides with local T_eff minimum in all seeds; β is not 1/T_eff
-14. β is not a reparameterization of any standard spectral probe (71 models; cross-term partial r = +0.16, below detection threshold)
-15. β* is architecture-invariant: ternary and float32 transformers converge to same β* (Exp 5)
-16. r(β*, active Fourier modes) = −0.85; r(β*, K_out) = +0.908; three group isomorphisms detected without circuit inspection (Exp 6)
-17. β₂* cleanly separates commutative (β₂* ≈ 0) from non-commutative (β₂* > 0.28) tasks; fails WD-invariance, confirming β* as sole universal fixed point (Exp 7)
+### Core Framework (Results 1–7)
+K_in and K_out are anti-correlated throughout pre-grokking training. The K_out/K_in ratio at grokking is a prime-invariant task complexity fingerprint (multiply ≈ 0.15, add ≈ 0.43). A sharp phase boundary exists at WD_c ∈ (0.25, 0.30). β* is inversely correlated with model size (ρ = −0.815).
 
----
+### Fixed Point Convergence (Results 8–12)
+β converges to a stable post-grokking fixed point β* with CV < 10% for multiply, 19% for add. β* is task-ordered: β*(multiply) ≈ 0.69 < β*(add) ≈ 3.44 < β*(subtract) ≈ 4.78, reflecting algebraic complexity. Subtract exhibits two-basin structure (Basin A: β* ≈ 4.78, Basin B: β* > 15). Basin assignment is deterministic: zero flips across 72 runs.
 
-## Experiments
+### Theoretical Connections (Results 13–14)
+Grokking coincides with a local T_eff minimum in all tested seeds. β is not a reparameterization of any standard spectral probe (71 models). WD-invariance of β* is empirical scheme-independence in the Wetterich sense.
 
-| Script | What it runs | Runtime (free T4) |
-|--------|-------------|-------------------|
-| `why2_bvel3.py` | Core β velocity: multiply, add, subtract × 3 seeds | ~35 min |
-| `why2_beta_corr.py` | Reparameterization check: 71 models | ~40 min |
-| `why2_teff_v3.py` | Effective temperature series | ~20 min |
-| `why2_predict_v2.py` | Structural prediction test | ~15 min |
-| `why2_exp1_bitnet.py` | Architecture invariance: float32 vs ternary | ~45 min |
-| `why2_exp3_fourier.py` | Fourier complexity: 6 tasks × 6 seeds | ~60 min |
-| `why2_exp4_beta2_v2.py` | β₂ symmetry-breaking order parameter | ~50 min |
-| `why2_basin_precheck.py` | Basin B pre-check at WD=0.5 (negative result) | ~30 min |
+### Architecture & Spectral Structure (Results 15–17)
+Ternary-weight (BitNet) transformers converge to the same β* as float32 (|diff| = 0.025 ± 0.010). β* is architecture-invariant. r(β*, active Fourier modes) = −0.85 across six task types. β*(triple) ≈ β*(multiply) detects hidden group isomorphism without circuit inspection. β₂* encodes algebraic commutativity but fails WD-invariance; β* remains the sole WD-invariant fixed point.
 
-All scripts are self-contained. Copy any script into a Colab notebook, run it. Output JSON and PNG saved to working directory.
+### Domain Boundary (Result 18)
+EEG motor imagery classification produces no grokking and no stable β*. K_in collapses to maximum entropy after memorization — WHY²'s probe requires architectures with meaningful asymmetric token routing. Domain currently constrained to discrete-token, operand-structured tasks.
+
+### Non-Abelian Extension (Results 19–20)
+Non-abelian group multiplication (D_4, D_6, D_8, Q_8) does not grok under the scalar WHY² probe across 36 seeds. The scalar probe is blind to the non-abelian barrier because the DFT basis is the abelian (d_ρ=1) sector of the full representation-theoretic decomposition.
+
+The **Peter–Weyl generalized probe** replaces scalar DFT K_out with a representation-weighted spectral decomposition using the full irrep basis of G:
+
+$$A_{\rho,ij} = \frac{d_\rho}{|G|} \sum_g E(g) \cdot \rho_{ij}(g)^* \qquad P_\rho = \frac{|G|}{d_\rho} \sum_{ij} \|A_{\rho,ij}\|^2$$
+
+Satisfies Parseval exactly (Σ P_ρ = ‖E‖²_F). Reduces to scalar probe for abelian groups (|β^PW* − β_scalar*| < 0.09). Detects three phenomena invisible to the scalar probe:
+
+1. **Persistent 2D irrep activation**: D_4 and Q_8 produce β^PW = 1.0–3.4 vs. abelian baseline 0.5–1.1
+2. **Abelian reduction**: β^PW = β_scalar for abelian groups — probes are nested
+3. **Subgroup lattice sensitivity**: β^PW(D_4) > β^PW(Q_8) across all seeds despite identical irrep dimensions [1,1,1,1,2] — D_4 has non-normal subgroups; Q_8 is Hamiltonian
+
+Non-abelian grokking does not occur even at TRAIN_FRAC=0.8, 50,000 epochs. The RG flow for non-abelian multiplication has no accessible IR fixed point under the standard scalar attention mechanism.
 
 ---
 
-## Quick Start
+## β* Empirical Values
 
-```bash
-pip install torch numpy scipy matplotlib
+| Task | β* | Active Modes | K_out |
+|------|----|-------------|-------|
+| multiply | 0.69 ± 0.05 | 48.7 | 0.107 |
+| division | 0.64 | 41.7 | 0.135 |
+| triple (a+b+ab) | 0.69 | 48.0 | 0.133 |
+| affine (2a+b) | 1.60 | 21.0 | 0.543 |
+| add | 3.44 ± 0.59 | 17.7 | 0.710 |
+| subtract (Basin A) | 4.78 ± 0.22 | 10.8 | 0.867 |
+| subtract (Basin B) | >15, diverging | — | — |
+
+---
+
+## Repository Structure
+
 ```
+WHY²/
+├── paper/
+│   └── WHY²_Paper_v10.docx            # Current paper (20 results)
+├── experiments/
+│   ├── why2_bvel3.py                  # Core β velocity experiment
+│   ├── why2_beta_corr.py              # Spectral reparameterization (71 models)
+│   ├── why2_exp1_bitnet.py            # Architecture invariance (BitNet)
+│   ├── why2_exp3_fourier.py           # Fourier complexity (6 tasks)
+│   ├── why2_exp4_beta2_v2.py          # β₂ commutativity
+│   ├── why2_eeg_v1.py                 # EEG domain transfer v1 (null result)
+│   ├── why2_eeg_v2.py                 # EEG domain transfer v2 (null result)
+│   ├── why2_exp_nonabelian.py         # Non-abelian groups (6 groups × 6 seeds)
+│   ├── why2_exp_peterweyl.py          # Peter–Weyl generalized probe
+│   └── why2_exp_peterweyl_followup.py # D₄ vs Q₈ follow-up (TRAIN_FRAC=0.8)
+├── results/
+│   └── why2_results_summary.json
+└── README.md
+```
+
+---
+
+## Quickstart (Google Colab)
 
 ```python
-# In Colab: Runtime > Change runtime type > T4 GPU
-!git clone https://github.com/l-austinsmith/WHY2
-%cd WHY2/experiments
-exec(open('why2_bvel3.py').read())
+!git clone https://github.com/l-austinsmith/WHY²
+%cd WHY²/experiments
+
+# Core result — β velocity (~30 min on T4)
+!python why2_bvel3.py
+
+# Peter–Weyl generalized probe (~90 min on T4)
+!python why2_exp_peterweyl.py
+
+# D₄ vs Q₈ follow-up (~60 min on T4)
+!python why2_exp_peterweyl_followup.py
 ```
+
+All experiments are self-contained, seed-reproducible, and run on free Colab T4.
 
 ---
 
-## Repo Structure
+## Theoretical Connections
 
-```
-WHY2/
-├── README.md
-├── paper/
-│   ├── WHY2_Paper_v9.docx
-│   └── WHY2_Paper_v9.pdf       ← export from DOCX before pushing
-├── experiments/                ← all self-contained scripts
-├── results/                    ← JSONs from all runs
-└── figures/                    ← PNGs from all runs
-```
+| WHY² concept | Theoretical analogue |
+|-------------|----------------------|
+| β* fixed point | Zamolodchikov c-theorem — empirical inverse c-function |
+| WHY² equation | Wetterich (1993) LPA φ⁴ fixed-point condition |
+| WD-invariance of β* | Scheme-independence in functional RG |
+| Subtract basin structure | φ⁶ tricritical point proximity |
+| Execution manifold (Xu 2026b) | Rank-1 submanifold — β* is coordinate along it |
+| Peter–Weyl probe | L²(G) decomposition via full irrep basis — DFT generalized to non-abelian G |
 
 ---
 
 ## Limitations & Scope
 
-- **Single-layer transformers only.** Scaling to 2–4 layers is future work; Fourier circuit competition differs in deeper models.
-- **Modular arithmetic, p = 97/113.** Larger primes, non-abelian groups, and real-world tasks not yet tested.
-- **β is phenomenological.** The equation is data-motivated from Kramers timescale asymmetry. The Wetterich LPA equivalence is a structural derivation; the inverse c-function interpretation is an empirical analogy built on top of it.
-- **Subtract basin structure characterized primarily at WD ≥ 1.0.** Basin B appears at lower WD; high-WD runs stay in Basin A. Full Basin B characterization is future work.
-- **β₂ threshold predictor is weak (r ≈ 0.33).** Asymmetry dynamics are partially decoupled from spectral compression. Reported honestly.
-
----
-
-## Paper
-
-**WHY2: A Running Coupling Framework for Grokking**
-Lucas Smith, 2026
-
-[`paper/WHY2_Paper_v9.pdf`](paper/WHY2_Paper_v9.pdf) · [`paper/WHY2_Paper_v9.docx`](paper/WHY2_Paper_v9.docx)
-
-17 results, full methodology, seed-level appendix tables, Wetterich functional RG grounding, Zamolodchikov c-theorem and holographic RG connections.
+- All modular arithmetic experiments use prime p = 97 or small-group Cayley tables; generalization to other primes untested
+- Domain currently constrained to discrete-token operand-structured tasks (EEG produces probe mismatch, Result 18)
+- Non-abelian groups do not grok at tested scales; Peter–Weyl probe detects spectral structure but no IR fixed point reached
+- β₂* fails WD-invariance and is a task-specific commutativity detector only
+- All experiments run on free Colab T4; seed counts and epoch budgets constrained accordingly
 
 ---
 
 ## Citation
 
 ```bibtex
-@article{smith2026why2,
-  title   = {WHY2: A Running Coupling Framework for Grokking},
+@misc{smith2026why2,
+  title   = {Timescale Asymmetry and Phase Structure in Grokking Transformers:
+             The WHY\textsuperscript{2} Framework},
   author  = {Smith, Lucas},
   year    = {2026},
-  url     = {https://github.com/l-austinsmith/WHY2}
+  note    = {Preprint. github.com/l-austinsmith/WHY²}
 }
 ```
 
 ---
 
-## Related Work
+## Open Problems
 
-- Xu, Y. (2026a). Early-Warning Signals of Grokking via Loss-Landscape Geometry. arXiv:2602.16967.
-- Xu, Y. (2026b). Low-Dimensional and Transversely Curved Optimization Dynamics in Grokking. arXiv:2602.16746.
-- He et al. (2026). Three-stage grokking and Fourier mode competition. arXiv:2602.16849.
-- Cullen et al. (2026). Grokking as phase transition between competing basins. arXiv:2603.01192.
-- Zhang et al. (2025). Grokking as computational glass relaxation. arXiv:2505.11411.
-- Wetterich, C. (1993). Exact renormalization group equation for the effective potential. Physics Letters B, 301(1), 90–94.
-- Zamolodchikov, A.B. (1986). Irreversibility of the flux of the renormalization group. JETP Letters, 43(12), 730–732.
+1. Does β^PW* exist for non-abelian groups under a matrix-attention architecture capable of implementing the full Peter–Weyl algorithm?
+2. Does β^PW(D_4) > β^PW(Q_8) hold at the fixed point (post-grokking) or only in the pre-grokking transient?
+3. Can β* predict grokking timescale from initialization, before training begins?
+4. Does the subtract φ⁶ tricritical interpretation survive formal Wetterich beta-function fitting?
+5. Does β* generalize to non-modular group-structured tasks (symmetric group S_n, crystallographic groups)?
 
----
-
-## Background
-
-Built by a self-taught researcher with no institutional affiliation, no compute budget beyond free Google Colab T4, and no collaborators. Every theoretical connection was found after the experimental result, not before.
-
-The triple isomorphism result was not predicted. It emerged from the measurement and was explained afterward.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for replication notes.
 
 ---
 
-## What's Next
-
-- Larger prime p (scaling behavior of β*)
-- Non-abelian group tasks (cross-term coupling prediction)
-- Causal interventions on β₂ trajectory (does perturbing β₂ change β*?)
-- Enzyme EC class classification (β* as biological task complexity)
-- Ising spin system RG flows
-
-If you have compute and want to collaborate, open an issue.
-
----
-
-## Contributing
-
-Bug reports, replication attempts, and extension experiments are all welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for details on open problems and replication notes.
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
-*All experiments reproducible on free hardware. Full seed-level data in the appendix.*
+*All experiments reproducible on free Google Colab. No institutional affiliation. No compute budget beyond free tier.*
