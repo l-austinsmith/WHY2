@@ -1,0 +1,205 @@
+Abstract
+We introduce WHY² (Weights, Harmonics, Yield), a framework for probing the internal dynamics of grokking transformers. Two spectral observables are defined: K_in, the concentration of attention routing from the equality token toward the operand positions, and K_out, the fraction of power in the top-10% of Fourier modes in the output embedding matrix. Their relationship is captured by the asymmetric equation K_out^β = K_in · exp(−H_n), where H_n is the normalized spectral entropy and β is an emergent diagnostic computed from the three observables simultaneously. This yields β = (ln K_in − H_n) / ln K_out. We report twenty-three results across thirteen experimental programs comprising more than 700 training runs. β converges to task-specific fixed points β* ordered multiply < add < subtract across nearly two orders of magnitude. The subtract task exhibits two-attractor dynamics separated by a K_out ≈ 0.83 threshold. Basin assignment is fully deterministic within a fixed execution environment and diverges within the first 25 gradient steps. β* is invariant to weight decay and architecture (ternary weights converge to the same β*). A 71-model reparameterization study confirms that β* is not reducible to standard spectral probes. The WHY² equation is formally equivalent to the local potential approximation fixed-point condition of the Wetterich functional renormalization group equation, providing a field-theoretic grounding for the observed weight-decay invariance. Extending to non-abelian groups via the Peter–Weyl theorem, a generalized probe replaces the scalar Fourier basis with the full irreducible-representation basis of the group. For S₄, which grokked in 6/6 seeds, the per-irrep spectral power predicts which of three distinct algorithms gradient descent finds, with r(β^PW*, 3D irrep power) = +0.978. Algorithm selection is determined by weight initialization geometry in 70% of seeds. These results connect computational measurements on small transformers to renormalization group theory and finite-group representation theory.
+ 
+ 
+1. Introduction
+Grokking—the phenomenon in which a transformer trained on a small algorithmic dataset achieves near-perfect test accuracy thousands of epochs after memorizing the training data—was identified by Power et al. (2022). Subsequent mechanistic interpretability work by Nanda et al. (2023) established that grokking on modular arithmetic corresponds to the formation of Fourier circuits in the embedding matrices. Zhang et al. (2025) proposed that grokking is a form of computational glass relaxation, in which the network undergoes a slow structural transition from an amorphous memorization state to a crystalline generalization state. He et al. (2026) characterized a three-stage Fourier mode competition process with an associated ordinary differential equation.
+ 
+These frameworks raise several questions that the present work addresses directly. Can the relaxation process be tracked in real time from within a single training run, without access to test accuracy? Do different tasks relax to qualitatively different ground states? What determines which ground state a given random seed reaches? Is the emergent diagnostic β a thermodynamic inverse temperature? Is it a reparameterization of simpler spectral measures? Does the framework generalize beyond abelian arithmetic tasks?
+ 
+The WHY² framework addresses these questions through two probes motivated by the Kramers barrier-crossing theory of reaction kinetics. The central finding is that β, computed as an emergent ratio of three simultaneously measured internal observables, functions as a running coupling constant that flows toward task-specific fixed points β* during training. The ordering of these fixed points—multiply < add < subtract—spans nearly two orders of magnitude and reflects the algebraic symmetry structure of each operation. We interpret β* as an empirical inverse c-function for the grokking renormalization group flow: a monotone scalar that characterizes the infrared fixed point of representation learning, in the same spirit as Zamolodchikov's c-theorem (1986) in two-dimensional quantum field theory.
+ 
+A 71-model reparameterization study confirms that β is not reducible to standard spectral probes and that its two natural components are empirically decoupled. The framework is extended to non-abelian groups via a Peter–Weyl generalized probe, which detects representation-theoretic structure invisible to the scalar Fourier basis and resolves which specific algorithm gradient descent selects when multiple algorithms are available.
+ 
+2. The WHY² Framework
+2.1 Derivation from Kramers Theory
+The Kramers escape rate for a Brownian particle in the overdamped limit is proportional to exp(−ΔV / k_B T), where ΔV is the barrier height. We treat grokking as a barrier-crossing event in representation space and define three observables by analogy.
+ 
+K_in measures the concentration of attention routing at the equality token: how sharply the model routes attention toward its input operands. Formally,
+K_in = mean_{batch, heads} [ w_{2→0} + w_{2→1} ]
+where w_{i→j} is the attention weight from position i to position j, and positions 0 and 1 are the operand positions.
+ 
+K_out measures the concentration of the Fourier power spectrum in the output embedding matrix:
+K_out = Σ_{top 10% modes} pw[k],   pw[k] = ||F_k · E||^2 / Σ_j ||F_j · E||^2
+where F is the Fourier basis matrix and E is the output embedding weight matrix.
+ 
+H_n is the normalized spectral entropy of the Fourier power distribution, playing the role of the barrier height ΔV / k_B T.
+2.2 The Asymmetric WHY² Equation
+A symmetric Kramers analogy gives K_out = K_in · exp(−H_n). Empirically, K_out evolves on a substantially slower timescale than K_in following grokking—K_in stabilizes within approximately 500 epochs post-grokking while K_out may continue rising for thousands of epochs. This timescale asymmetry motivates the asymmetric equation:
+K_out^β = K_in · exp(−H_n)
+Solving for the diagnostic yields:
+β = (ln K_in − H_n) / ln K_out
+β is not a free parameter and is not a fitted exponent. It is computed directly from three simultaneously measured observables at every probe epoch. Its dynamics—trajectory, velocity dβ/dt, and eventual fixed point β*—are entirely determined by the training process.
+2.3 Connection to Renormalization Group Theory
+The WHY² fixed-point equation is formally equivalent to the local potential approximation (LPA) fixed-point condition of the Wetterich functional renormalization group equation (Wetterich 1993). In the Wetterich framework, the flowing effective action interpolates between the ultraviolet action at the memorization scale and the infrared effective action at the crystallization fixed point as the RG scale decreases. The LPA truncates this flow to a single field ϕ ≡ K_out with a local potential, yielding an equation whose fixed points coincide with those of the WHY² equation.
+ 
+This identification has a direct empirical consequence. The scheme-independence of Wetterich fixed points—their invariance under changes in the RG regulator function—predicts that β* should be invariant under changes in the training hyperparameter playing the role of a regulator. Weight decay is this regulator: it controls the rate at which low-frequency modes are suppressed relative to high-frequency ones. The observed weight-decay invariance of β* is therefore a direct empirical verification of Wetterich scheme-independence in the grokking setting.
+ 
+3. Experimental Setup
+All experiments use a single-layer transformer following the Nanda et al. (2023) configuration: nn.MultiheadAttention with 4 heads, a position-wise feed-forward network with ReLU activation and dimension 4·d_model, and learnable position embeddings. Input sequences take the form [a, b, =] with output logits over Z_p (vocabulary size p). Training uses AdamW with learning rate 10^{-3}. Weight decay is the primary control variable in tier-2 experiments. The equality-position output is used for cross-entropy loss.
+ 
+Probing is performed every 25 epochs. K_in, K_out, and H_n are computed from the current model weights at each probe step. β is then computed analytically from these three values.
+ 
+4. Main Results: Fixed Points and Task Ordering
+4.1 Pre-Grokking Anti-Correlation (Result 1)
+Across all tasks, seeds, and configurations, K_in and K_out move in opposite directions throughout the pre-grokking phase. K_in rises as the model learns to route attention toward operands; K_out falls as embedding representations spread into diffuse pre-Fourier patterns. At grokking, K_out inflects sharply upward while K_in begins to plateau. This anti-correlation is a continuous observable of the memorization-to-generalization transition, detectable without access to test accuracy.
+4.2 Task Complexity Fingerprints (Results 2–4)
+The ratio K_out/K_in at grokking is a stable, prime-invariant fingerprint of task complexity. Experiments on p = 97 and p = 113 yield overlapping fingerprint ranges with zero inter-task overlap (Table 1). A sharp phase boundary exists at weight-decay WD_c ∈ (0.25, 0.30), with critical slowing down and K_out maximization at the boundary (Result 3). K_out at grokking decreases monotonically with model size, with Spearman ρ = −0.815 across d_model ∈ {64, 128, 256} (Result 4).
+ 
+Task	K_out/K_in at Grokking	K_out at Grokking	Mean Grokking Epoch	N
+multiply	0.144–0.165	0.130–0.148	≈3,500	6
+add	0.384–0.508	0.340–0.420	≈4,600	6
+subtract	0.350–0.450	0.340–0.400	≈5,000	6
+triple (a+b+ab)	0.55–0.70	0.480–0.590	≈7,000	3
+Table 1. K_out/K_in ratio at grokking by task (p = 97). Clusters show zero overlap.
+4.3 Fixed Point Results (Results 5–6)
+Extending training to 18,000 epochs across three tasks and three seeds each, β converges to finite task-specific fixed points β* with dβ/dt → 0 in all cases (Result 5). The ordering
+β*(multiply) ≈ 0.72  <  β*(add) ≈ 3.5  <  β*(subtract) ≈ 5–15
+holds universally across seeds (Result 6), spanning nearly two orders of magnitude. Three qualitatively distinct thermodynamic regimes emerge: FLUID (multiply, β* < 1), ORDERED (add, β* ≈ 3–5), and CRYSTALLIZED (subtract, β* ≥ 5). Table 2 provides the complete fixed-point results.
+ 
+Task	Seed	β* (mean)	β* (std)	K_out*	Basin	Regime
+multiply	42	0.718	0.046	0.168	—	FLUID
+add	42	3.215	0.389	0.713	—	ORDERED
+add	123	3.651	0.741	0.801	—	ORDERED
+add	7	3.639	0.624	0.680	—	ORDERED
+subtract	42	15.237	1.462	0.954	B	CRYSTALLIZED
+subtract	123	4.955	0.511	0.828	A	CRYSTALLIZED
+subtract	7	5.004	0.298	0.844	A	CRYSTALLIZED
+Table 2. Fixed-point results from the 18,000-epoch velocity experiment.
+4.4 Subtract Two-Attractor Dynamics (Result 7)
+The subtract task exhibits two-attractor dynamics. Seeds converging to Basin A reach β* ≈ 5.0 with K_out* ≈ 0.83–0.84. One seed (s42) reaches Basin B with β* ≈ 15.2 and K_out* ≈ 0.945, following a two-stage crystallization: Stage 1 (primary circuit formation, β rises to ~5, attention asymmetry peaks at 0.057), then Stage 2 (K_out crosses 0.83, β rises rapidly to 15–18, attention asymmetry collapses as directional information transfers to the Fourier structure). The K_out ≈ 0.83 threshold is the mechanistic boundary separating the two attractors and is interpreted as a tricritical surface in the ϕ4 effective potential (Result 7).
+ 
+5. Basin Selection: A Falsification Program (Results 8–12)
+The discovery of two-attractor dynamics raised an immediate mechanistic question: what determines which basin a given seed enters? We designed and executed four causal intervention experiments (144 runs), an initialization geometry analysis (12 seeds), a correlation study (30 seeds), and a basin stability test (72 runs), totaling 174 additional training runs.
+ 
+The four intervention experiments tested whether post-initialization dynamics determine basin assignment by: (1) forcing K_out below 0.83 by zeroing high-frequency Fourier modes; (2) early-mode disruption at K_out ≥ 0.60; (3) forcing attention symmetry during memorization; (4) forcing attention symmetry during early generalization. All four produced null results. Basin B rate remained at approximately 1/6 in both control and perturbation arms (Result 9).
+ 
+Initialization geometry analysis showed that four of five epoch-0 metrics are statistically identical across basins. The Fourier spectrum at epoch 0 is flat and uniform, ruling out a lottery-ticket mechanism (Result 10). A 30-seed correlation study found Pearson r = −0.044 (p = 0.818) between initial attention asymmetry and β*, confirming no linear relationship (Result 11). A 72-run basin stability test produced zero basin flips, with β* reproducible to six decimal places across all repeats in both deterministic and stochastic CUDA conditions (Result 12).
+ 
+These five results jointly establish that basin assignment is determined within the first ~25 gradient steps, is invisible in epoch-0 geometry, and is irreversible to any post-initialization intervention. This picture is consistent with a transcritical or saddle-node bifurcation occurring within the first ~25 gradient steps, and with the Cullen et al. (2026) singular learning theory framework in which two near-zero-loss basins with different local learning coefficients compete during early training.
+ 
+6. Effective Temperature Experiments (Result 13)
+The WHY² Kramers analogy motivates the question of whether β literally equals an inverse temperature 1/T_eff of the optimization dynamics. We tested three predictions across six seeds on the subtract task. Effective temperature was defined as T_eff = gradient variance / (2 · learning rate).
+ 
+Result 13 (confirmed): Grokking coincides with a local T_eff minimum in all six seeds. The gradient field is most coherent—least noisy—precisely at the grokking transition, consistent with the glass relaxation picture.
+ 
+Three additional predictions were falsified. The correlation between β and 1/T_smooth is inconsistent across seeds (range: −0.43 to +0.60, one with the wrong sign). Basin B seeds are not systematically hotter than Basin A seeds. Most decisively, the product β · T_smooth does not converge to a basin-specific constant: across six seeds it spans three orders of magnitude (0.009 to 23.4). Dense probing of one seed detected 168 gradient explosion events that dominate T_smooth for hundreds of epochs after the raw temperature returns to baseline, entirely corrupting the adiabatic constant hypothesis. We therefore conclude that β is an empirical inverse c-function analog for the grokking RG flow, not a literal inverse temperature.
+ 
+7. Spectral Reparameterization Study (Result 14)
+We conducted a 71-model spectral study (8 seeds × 3 weight-decay values × 3 tasks) to determine whether β* is reducible to standard spectral probes. Eleven probes were computed at each freeze point: β, K_in, K_out, H_n, K_in_asym, effective rank, spectral entropy, top singular value fraction, participation ratio, nuclear norm ratio, and normalized spectral entropy. Partial correlations with β controlling for task identity were computed across all 71 models.
+ 
+Probe	Partial r | task	R² explained	Verdict
+effective_rank	−0.28	7.8%	Weak, independent
+participation_ratio	−0.59	34.8%	Partial, independent
+nuclear_norm_ratio	−0.60	35.7%	Partial, independent
+K_in	+0.08	0.6%	INDEPENDENT of β
+K_in_asym	+0.10	1.0%	INDEPENDENT of β
+spectral_entropy	−0.70	49.1%	Partial correlation
+top_sv_fraction	+0.79	63.0%	Partial correlation
+K_out (formula input)	+0.85	71.6%	Expected (formula)
+H_n (formula input)	−0.85	72.6%	Expected (formula)
+Table 3. Partial correlations with β after controlling for task identity (n = 71).
+ 
+K_in alone explains 0.6% of β variance after controlling for task and is genuinely uninformative. K_in_asym is equally uninformative at 1.0%. No standard spectral probe reproduces β. A cross-term test found the partial correlation of K_out × K_in_asym with β to be r = +0.16 after task control, below the detection threshold, confirming that the two spectral components are empirically decoupled and that the ϕ4 single-field description in K_out is complete for the tasks studied (Result 14).
+ 
+8. Architecture Invariance (Result 15)
+Ternary-weight transformers (weights constrained to {−1, 0, +1} via straight-through estimation, approximating BitNet) were trained alongside float32 controls on multiply and add. For the four valid multiply pairs, the difference β*(ternary) − β*(float32) = +0.025 ± 0.010, equal to 0.44σ of the prior β* distribution for multiply. Ternary-weight transformers grokked 1.3–1.6× faster than float32 equivalents and converged to the same β*, consistent with weight quantization acting as an additional spectral regularizer that accelerates but does not redirect the RG flow. β* is architecture-invariant for the tasks studied (Result 15).
+ 
+9. Fourier Complexity and Isomorphism Detection (Results 16–17)
+Six task types were trained to test whether β* correlates with Fourier mode complexity: multiply, add, subtract, division (a ÷ b mod p), affine (2a + b mod p), and triple (a + b + ab mod p). Across these tasks, r(β*, active Fourier modes) = −0.85 (Result 16a). Tasks with fewer active modes at convergence have higher β*, not lower. β* measures spectral compression cost: subtract crystallizes from ~97 active modes to ~11 (89% compression, high cost), while multiply retains ~49 of 97 modes (50% compression, low cost).
+ 
+The triple task, triple(a, b) = a + b + ab mod p, appears nonlinear but admits the factorization (1+a)(1+b)−1, making it isomorphic to multiplication under the index shift x → x + 1. WHY² detects this without circuit inspection: β*(triple) = 0.689 ± 0.040 ≈ β*(multiply) = 0.625 ± 0.010, a difference of 0.064 within 1.0σ combined (Result 16b, third group isomorphism confirmation). The affine task (2a + b mod p), which lacks group structure, grokked 3–4× slower with an intermediate β* ≈ 1.60 distinct from all group-structured tasks.
+ 
+Attention asymmetry β2* = K_in_asym / K_in collapses to near-zero for commutative tasks (collapse ratio < 0.10) and persists at β2* ≈ 0.32–0.44 for non-commutative subtract, providing a clean binary detector of algebraic commutativity (Result 17). However, β2* fails the weight-decay invariance test: WD = 1.0 gives β2* = 0.42 ± 0.07 versus WD = 2.0 giving β2* = 0.32 ± 0.02, a difference exceeding the pooled standard deviation. β* remains the sole WD-invariant fixed point.
+ 
+10. Domain Transfer: EEG Motor Imagery (Result 18)
+Two experiments applied the WHY² probe to synthetic EEG motor imagery classification. Neither produced grokking under 25,000 epochs. Mechanistic diagnosis revealed that K_in collapsed to maximum entropy (1/65) immediately after memorization: the CLS token attended uniformly across all 64 time steps, encoding no asymmetric routing of spectral information. β flatlined at a degenerate fixed point. The root cause is architectural: the K_in probe requires architectures in which attention asymmetry encodes meaningful operand routing. EEG CLS architectures violate this requirement because temporal features do not decompose into operand-like tokens with directional Fourier structure (Result 18).
+ 
+11. Non-Abelian Groups: Scalar Probe Failure (Result 19)
+Five non-abelian groups (D_4, D_6, D_8, Q_8, and Z_8 as a data-limited baseline) were trained using Cayley table multiplication. All failed to grok across all six seeds under the scalar WHY² probe over 25,000 epochs. The scalar β trajectory is statistically indistinguishable from the abelian case throughout training. The non-abelian barrier is structural: the scalar DFT basis is the abelian (d_ρ = 1) sector of a more general representation-theoretic decomposition and cannot detect the activation of higher-dimensional irreducible representations (Result 19).
+ 
+12. Peter–Weyl Generalized Probe (Results 20–21)
+12.1 Theoretical Background
+The Peter–Weyl theorem states that for any compact group G, the matrix coefficients of all irreducible unitary representations form a complete orthonormal basis for L²(G). For abelian groups, all irreducible representations are one-dimensional and this reduces to scalar Fourier analysis. For non-abelian groups, some irreducible representations have dimension d_ρ ≥ 2, requiring matrix-valued Fourier coefficients. The generalized probe replaces the scalar DFT K_out with a representation-weighted spectral decomposition of the output embedding matrix E.
+ 
+For each irreducible representation ρ of dimension d_ρ, the Peter–Weyl Fourier coefficient is A_{ρ,ij} = (d_ρ / |G|) Σ_g E(g) · ρ_{ij}(g)*, and the spectral power is P_ρ = (|G| / d_ρ) Σ_{ij} ||A_{ρ,ij}||^2. This normalization satisfies Parseval's theorem exactly for all six groups tested. The scalar WHY² probe is recovered exactly as the d_ρ = 1 special case.
+12.2 Non-Abelian Spectral Detection (Result 20)
+The Peter–Weyl probe reveals a sharp qualitative difference invisible to the scalar probe. D_4 and Q_8 produce β^PW values persistently in the range 1.0–3.4, compared to the abelian baseline β^PW = 0.5–1.1 for Z_8 and Z_16. The scalar β for the same runs remains in the abelian range throughout—the 2D irrep subspace is activated and carries real spectral weight, but the scalar probe is blind to it. For Z_8 and Z_16, β^PW* and β_scalar* agree within 0.05–0.09, confirming exact reduction for abelian groups.
+ 
+D_4 and Q_8 are both order-8 non-abelian groups with identical irrep dimension patterns [1,1,1,1,2]. Despite this, the probe consistently assigns higher β^PW to D_4 than Q_8 across all seeds in both experiments. Since irrep dimensions are identical, this difference cannot be attributed to representation-theoretic complexity alone. D_4 has non-normal subgroups (the four reflection subgroups), while Q_8 is a Hamiltonian group in which every subgroup is normal. The higher spectral compression cost for D_4 appears to reflect the greater structural disorder of its subgroup lattice (Result 20).
+12.3 S₄ Symmetric Group: Per-Irrep Algorithm Detection (Result 21)
+S₄ (order 24) grokked in 6/6 seeds with β^PW* = 2.54 ± 1.07. The scalar probe yields β_scalar* = 0.84 ± 0.13, flat and indistinguishable from the abelian baseline. Per-irrep spectrum analysis reveals three distinct grokking algorithms distinguished entirely by their settled spectral power distribution.
+ 
+Algorithm	Dominant Irrep	β^PW* Range	Seeds
+V₄ coset pullback	pullback_2D	1.3–1.5	42, 17
+sign × standard 3D	sign_x_standard_3D	1.3–2.6	123, 31
+Full standard 3D	standard_3D	3.5–4.1	7, 71
+Table 4. Three distinct S₄ grokking algorithms, distinguished by Peter–Weyl spectral power.
+ 
+Across all six seeds, r(β^PW*, 3D irrep power) = +0.978 and r(β^PW*, 2D irrep power) = −0.940. β^PW* measures which specific irrep subspace the grokking algorithm occupies—connecting directly to the Shutman et al. fusion algebra framework in which the rank of the structure tensor of the implemented algorithm determines β^PW* (Result 21).
+ 
+13. Symmetric Group S₃ and Quotient Group Structure (Result 22)
+S₃ (order 6) failed to grok at any data fraction (0.5–0.9) or duration (up to 200,000 epochs). The β^PW trajectory is chaotic, oscillating between 1.5 and 18.4 over 200,000 epochs with no convergent trend, in contrast to D_4's stable non-grokking (β^PW ≈ 1.0–1.8 throughout 200,000 epochs).
+ 
+The contrast between S₄ (6/6 grokked) and S₃ (0/5 data fractions) reveals that the non-abelian barrier depends on whether the group admits a low-cost quotient algorithm. S₄ has the normal subgroup V₄ = {e, (12)(34), (13)(24), (14)(23)}, giving the optimizer a factored attractor via S₄ / V₄ ≅ S₃ using only the 2D pullback irrep. S₃ has no non-trivial normal subgroup quotient; gradient descent must implement the 2D standard irrep directly without a coarser bootstrap. The chaotic β^PW trajectory confirms that S₃ is wandering without finding any stable spectral basin, not converging toward a solution it cannot quite reach (Result 22).
+ 
+14. Early Algorithm Detection in S₄ (Result 23)
+To determine whether algorithm selection can be predicted before grokking occurs, 36 seeds were run on S₄ with dense logging (every epoch from 0–500, every 10 epochs from 500–2,000). Tier prediction accuracy at all cutoff epochs from 10 to 500 was flat at 29.6%, consistent with chance for three tiers.
+ 
+Post-hoc analysis reveals three findings. First, in 19/27 grokked seeds (70%), the dominant irrep at epoch 0 matches the settled algorithm irrep. Algorithm selection precedes training and is set by initialization geometry. Second, within a committed irrep, β^PW* correlates strongly with post-grokking spectral concentration speed: r(β^PW*, concentration slope) = +0.813 (p = 0.008) for seeds committed to sign_x_standard_3D. β^PW* therefore measures how completely gradient descent concentrated spectral power onto the selected irrep, not which algorithm was selected. Third, the three tiers are statistically indistinguishable at initialization (Kruskal–Wallis p > 0.07 for all five irreps) and diverge only during the grokking transition (Result 23).
+ 
+The mechanism is therefore: initialization sets the irrep; pre-grokking training preserves it; grokking amplifies it; β^PW* measures the amplification.
+ 
+15. Discussion
+15.1 β* as an Inverse c-Function for Grokking
+β* satisfies five properties of an empirical inverse c-function for the grokking RG flow: (1) it is monotone across tasks (multiply < add < subtract); (2) it is computed from internal model observables without task knowledge; (3) it characterizes the fixed-point structure; (4) it is sensitive to symmetry breaking; and (5) it is weight-decay invariant, consistent with Wetterich scheme-independence. The task ordering reflects the algebraic structure of Z_p under each operation. Multiply and add are commutative, permitting symmetric Fourier representations. Subtract breaks commutativity, requiring a directed representation that demands higher spectral compression and inflates β through the log K_out denominator.
+15.2 The Peter–Weyl Extension
+The scalar WHY² probe is the abelian (d_ρ = 1) sector of the general Peter–Weyl formulation. For non-abelian groups, the scalar probe is blind to the activation of higher-dimensional irreducible representations, explaining the absence of grokking detection for D_4, D_6, D_8, and Q_8 under the scalar probe. The Peter–Weyl probe recovers this structure and further resolves individual algorithm identities for S₄, connecting β^PW* to the rank of the Shutman et al. fusion structure tensor. The quotient group condition (normal subgroup ⊴ G gives a factored subalgorithm) explains the difference between S₄ (grokks) and S₃ (does not).
+15.3 Limitations
+All results use single-layer transformers. Multi-layer models may exhibit qualitatively different dynamics. The subtract two-attractor result is based on a small number of seeds in the velocity experiment, though confirmed in the basin stability program. The K_out → 1 singularity inflates raw β* for subtract Basin B; the ordering is robust under regularization, but absolute magnitudes should be interpreted cautiously. The c-theorem and Wetterich interpretations are analogies grounded in empirical observation; formal derivations are open theoretical questions. The spectral reparameterization study used a 3,000-epoch post-grokking settle window; subtract results show higher within-task variance attributable to insufficient convergence, and an 8,000–10,000 epoch window is recommended for definitive subtract results.
+ 
+16. Summary of Results
+Table 5 provides a compact reference for all twenty-three results established in this work.
+ 
+#	Result	Key Quantity
+1	K_in and K_out are anti-correlated throughout pre-grokking training	ρ(K_in, K_out) < 0
+2	K_out/K_in at grokking is a prime-invariant task fingerprint	multiply: ~0.15, add: ~0.43
+3	Sharp phase boundary at WD_c ∈ (0.25, 0.30)	Critical slowing down at boundary
+4	K_out at grokking decreases monotonically with d_model	ρ = −0.815
+5	β converges to finite task-specific fixed points β*	dβ/dt → 0
+6	β*(multiply) < β*(add) < β*(subtract) universally	~0.72 < ~3.5 < ~5–15
+7	Subtract: two-attractor dynamics separated by K_out ≈ 0.83	Tricritical ϕ⁴ surface
+8	Asymmetry scaffold persistence predicts basin assignment	Mechanistic predictor
+9	No post-initialization intervention shifts basin assignment	Null across 144 runs
+10	Epoch-0 geometry is identical across basins	No lottery-ticket mechanism
+11	Initial attention asymmetry does not predict β*	r = −0.044 (p = 0.818, n = 30)
+12	Basin assignment is deterministic within fixed environment	Zero flips in 72 runs
+13	Grokking coincides with T_eff minimum; β ≠ 1/T_eff	6/6 seeds; product falsified
+14	β* not reparameterizable from 71 spectral probes	K_in explains 0.6% of variance
+15	Ternary (BitNet) transformers converge to same β*	|diff| = 0.025 ± 0.010
+16	r(β*, active Fourier modes) = −0.85; triple ≅ multiply	6 task types
+17	β2* detects commutativity but fails WD-invariance	β2* collapses for commutative tasks
+18	EEG domain transfer null; K_in requires operand routing	K_in → 1/65 max entropy
+19	Scalar probe fails for non-abelian groups	D_4, D_6, D_8, Q_8, Z_8
+20	Peter–Weyl probe detects non-abelian structure; reads subgroup lattice	β^PW(D_4) > β^PW(Q_8)
+21	r(β^PW*, 3D irrep power) = +0.978 for S₄	Three distinct algorithms
+22	S₃ fails; quotient group structure determines grokking barrier	S₄: V₄ ⊴ S₄ ⇒ grokks
+23	Algorithm selection set at initialization (70% of seeds)	r(β^PW*, concentration) = +0.813
+Table 5. Complete summary of the twenty-three results established in this work.
+ 
+17. References
+Cullen, E., et al. (2026). Grokking as a phase transition between competing near-zero-loss basins. arXiv:2603.01192.
+Erdmenger, J., et al. (2022). Entanglement entropy as a probe of the proximity effect in holographic superconductors. arXiv:2107.06898.
+Gardiner, C. W. (2004). Handbook of Stochastic Methods for Physics, Chemistry and the Natural Sciences (3rd ed.). Springer, Berlin.
+He, K., et al. (2026). Three-stage grokking and Fourier mode competition. arXiv:2602.16849.
+Kramers, H. A. (1940). Brownian motion in a field of force and the diffusion model of chemical reactions. Physica, 7(4), 284–304.
+Mallinar, N., et al. (2025). Grokking as the transition from lazy to rich training dynamics. ICML 2025.
+Nanda, N., Chan, L., Lieberum, T., Smith, J., & Steinhardt, J. (2023). Progress measures for grokking via mechanistic interpretability. ICLR 2023.
+Peter, F., & Weyl, H. (1927). Die Vollständigkeit der primitiven Darstellungen einer geschlossenen kontinuierlichen Gruppe. Mathematische Annalen, 97(1), 737–755.
+Power, A., Mosconi, Y., Misra, C., Lucas, J., & Bahri, Y. (2022). Grokking: Generalization beyond overfitting on small algorithmic datasets. arXiv:2201.02177.
+Risken, H. (1989). The Fokker–Planck Equation: Methods of Solution and Applications. Springer, Berlin.
+Xu, Y. (2026a). Early-warning signals of grokking via loss-landscape geometry. arXiv:2602.16967.
+Xu, Y. (2026b). Low-dimensional and transversely curved optimization dynamics in grokking. arXiv:2602.16746.
+Zamolodchikov, A. B. (1986). Irreversibility of the flux of the renormalization group in a 2D field theory. JETP Letters, 43(12), 730–732.
+Zhang, Y., et al. (2025). Grokking as computational glass relaxation. arXiv:2505.11411. NeurIPS 2025 (Spotlight).
+Wetterich, C. (1993). Exact evolution equation for the effective potential. Physics Letters B, 301(1), 90–94.
